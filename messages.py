@@ -7,6 +7,26 @@ Streamlit app reruns, avoiding isinstance comparison issues.
 """
 import streamlit as st
 from abc import ABC, abstractmethod
+import re
+
+
+def strip_structured_data(content):
+    """
+    Remove structured data markers and JSON from content for display.
+    Keeps the original content intact for extraction but hides it from users.
+    """
+    if not content:
+        return content
+    
+    # Remove the entire structured data section
+    pattern = r'\s*---STRUCTURED_DATA---.*?---END_STRUCTURED_DATA---\s*'
+    cleaned_content = re.sub(pattern, '', content, flags=re.DOTALL)
+    
+    # Clean up any extra whitespace left behind
+    cleaned_content = re.sub(r'\n{3,}', '\n\n', cleaned_content)
+    cleaned_content = cleaned_content.strip()
+    
+    return cleaned_content
 
 
 class Message(ABC):
@@ -64,7 +84,17 @@ def render_message(msg):
     if msg["role"] == "assistant":
         # Render content first if it exists
         if msg.get("content"):
-            st.markdown(msg["content"])
+            # Check if structured data exists
+            has_structured_data = "---STRUCTURED_DATA---" in msg["content"]
+            
+            # Strip structured data for display (but keep it in the original message)
+            display_content = strip_structured_data(msg["content"])
+            if display_content:  # Only display if there's content after stripping
+                st.markdown(display_content)
+            
+            # Add subtle indicator if structured data was captured
+            if has_structured_data:
+                st.caption("📋 *Compliance data captured for reporting*")
         
         # Then render tool calls if they exist
         if "tool_calls" in msg and msg["tool_calls"]:
