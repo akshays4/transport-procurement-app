@@ -8,6 +8,79 @@ Streamlit app reruns, avoiding isinstance comparison issues.
 import streamlit as st
 from abc import ABC, abstractmethod
 import re
+import html
+
+
+def clean_html_and_special_chars(content):
+    """
+    Remove HTML tags and clean up special characters from content.
+    This provides a safety layer to clean up any HTML markup that gets through.
+    """
+    if not content:
+        return content
+    
+    # Remove common HTML tags
+    content = re.sub(r'<table[^>]*>.*?</table>', '', content, flags=re.DOTALL | re.IGNORECASE)
+    content = re.sub(r'<tr[^>]*>.*?</tr>', '', content, flags=re.DOTALL | re.IGNORECASE)
+    content = re.sub(r'<td[^>]*>.*?</td>', '', content, flags=re.DOTALL | re.IGNORECASE)
+    content = re.sub(r'<th[^>]*>.*?</th>', '', content, flags=re.DOTALL | re.IGNORECASE)
+    content = re.sub(r'<tbody[^>]*>.*?</tbody>', '', content, flags=re.DOTALL | re.IGNORECASE)
+    content = re.sub(r'<thead[^>]*>.*?</thead>', '', content, flags=re.DOTALL | re.IGNORECASE)
+    
+    # Remove any remaining HTML tags
+    content = re.sub(r'<[^>]+>', '', content)
+    
+    # Unescape HTML entities
+    content = html.unescape(content)
+    
+    # Clean up extra whitespace
+    content = re.sub(r'\n{3,}', '\n\n', content)
+    content = re.sub(r' {2,}', ' ', content)
+    
+    return content.strip()
+
+
+def extract_and_hide_footnotes(content):
+    """
+    Extract verbose footnotes from knowledge assistant responses and return
+    cleaned content and footnotes separately.
+    
+    Returns: (cleaned_content, footnotes_text)
+    """
+    if not content:
+        return content, None
+    
+    # Pattern to match "Footnotes" section with verbose content
+    # Matches from "Footnotes" or "References:" to end or next major section
+    footnote_patterns = [
+        # Pattern 1: "Footnotes" followed by numbered items with ↩ or similar
+        r'\n\s*Footnotes?\s*\n(.*?)(?=\n\n[A-Z]|\n\n---|\Z)',
+        # Pattern 2: Numbered footnotes with superscript-like markers
+        r'\n\s*(?:\d+\.?\s*<table|¹.*?<table).*?(?=\n\n[A-Z]|\Z)',
+        # Pattern 3: Any section with heavy HTML table markup
+        r'\n\s*(?:References?:?\s*\n)?(.*?<table.*?</table>.*?)(?=\n\n[A-Z]|\Z)',
+    ]
+    
+    footnotes_found = None
+    cleaned_content = content
+    
+    for pattern in footnote_patterns:
+        match = re.search(pattern, content, re.DOTALL | re.IGNORECASE)
+        if match:
+            footnotes_found = match.group(0).strip()
+            # Remove the footnote section from main content
+            cleaned_content = content[:match.start()] + content[match.end():]
+            break
+    
+    # Also check for <think> tags and remove them
+    think_pattern = r'<think>.*?</think>'
+    if re.search(think_pattern, cleaned_content, re.DOTALL):
+        cleaned_content = re.sub(think_pattern, '', cleaned_content, flags=re.DOTALL)
+    
+    # Clean up extra whitespace
+    cleaned_content = re.sub(r'\n{3,}', '\n\n', cleaned_content).strip()
+    
+    return cleaned_content, footnotes_found
 
 
 def strip_structured_data(content):

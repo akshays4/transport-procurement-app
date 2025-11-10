@@ -97,6 +97,40 @@
 }
 ```
 
+## Citation Formatting (Knowledge Assistant Responses)
+
+When processing responses from knowledge assistant tools:
+
+### ✅ DO:
+- Remove `<think>` tags and internal reasoning
+- Convert HTML table footnotes to clean inline citations
+- Use format: "(Source Name, Date)" or "(Policy Section X.Y)"
+- Deduplicate repeated citations
+- Create simple References section if needed
+
+### ❌ DON'T:
+- Include raw HTML markup (`<table>`, `<tr>`, `<td>`)
+- Include duplicate footnote content
+- Show internal file paths or URLs
+- Display verbose citation tables
+- Show numbered superscript footnotes with HTML tables
+
+### Example Transformation:
+
+**Bad (from tool):**
+```
+You must monitor compliance.1
+
+Footnotes
+1. <table><tr><th>Status</th>...[200 lines]...</table> ↩
+```
+
+**Good (cleaned):**
+```
+You must monitor compliance on an ongoing basis 
+(Supplier Due Diligence Guide, December 2024).
+```
+
 ## Dos and Don'ts
 
 ### ✅ DO:
@@ -106,6 +140,7 @@
 - Include clear rationale
 - Be specific about timeframes
 - Provide measurable criteria
+- Clean up knowledge assistant citations
 
 ### ❌ DON'T:
 - Use vague terms like "some issues"
@@ -114,6 +149,7 @@
 - Use passive voice for actions
 - Skip the rationale field
 - Include subjective opinions without evidence
+- Pass through raw HTML markup or verbose footnotes
 
 ## Testing Commands
 

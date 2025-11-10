@@ -268,6 +268,47 @@ The structured JSON format makes it easy to support multiple languages:
 2. Allow values in local language
 3. Update the extraction logic to handle Unicode properly
 
+## Knowledge Assistant Citation Cleanup
+
+### Problem: Excessive Footnotes and Poor Formatting
+
+When using knowledge assistant tools (like Databricks Genie), responses often include:
+- Verbose footnotes with raw HTML table markup
+- Duplicate citation content
+- Internal file system URLs
+- Poorly formatted reference sections
+
+### Solution: System Prompt Instructions
+
+The updated system prompt now includes specific instructions for cleaning up knowledge assistant responses:
+
+**What the agent will now do:**
+- ✅ Remove `<think>` tags and internal reasoning
+- ✅ Remove raw HTML markup from footnotes
+- ✅ Convert verbose citations to clean inline references
+- ✅ Deduplicate repeated citations
+- ✅ Present information in a readable format
+
+**Example transformation:**
+
+**Before (from knowledge assistant):**
+```
+You must monitor supplier compliance.1
+
+Footnotes
+1. <table><tr><th>Relating to</th>...[200 lines of HTML]... ↩
+```
+
+**After (cleaned by agent):**
+```
+Based on the NSW Procurement Policy Framework, you must monitor supplier 
+compliance on an ongoing basis (Supplier Due Diligence Guide, Dec 2024).
+```
+
+### Implementation
+
+This is automatically handled by the updated system prompt. No code changes needed.
+
 ## Troubleshooting
 
 ### Issue: Structured data not being extracted
@@ -306,6 +347,28 @@ The structured JSON format makes it easy to support multiple languages:
 - Test with both structured and unstructured responses
 - Update regex patterns in extraction function if needed
 
+### Issue: Excessive footnotes and HTML markup in responses
+
+**Possible Causes:**
+1. Knowledge assistant tool returning verbose citations
+2. Agent not processing tool responses properly
+3. System prompt not being followed
+
+**Solutions:**
+- Ensure the updated system prompt (with citation cleanup instructions) is deployed
+- Verify the agent is receiving and processing the system prompt correctly
+- Check that the agent is cleaning up knowledge assistant responses before presenting them
+- Review the agent's tool call handling logic
+- Test with a simple query to verify footnote cleanup is working
+
+**Quick Test:**
+Ask the agent a policy question and verify the response:
+- ✅ Should have clean inline citations like "(NSW Procurement Policy, Section 2.03)"
+- ✅ Should have a simple References section if needed
+- ❌ Should NOT have raw HTML `<table>` tags
+- ❌ Should NOT have duplicate footnote content
+- ❌ Should NOT have `<think>` tags visible
+
 ## Testing Checklist
 
 Before deploying to production:
@@ -320,6 +383,10 @@ Before deploying to production:
 - [ ] Export functions include all structured fields
 - [ ] Special characters in supplier names handled correctly
 - [ ] Long action descriptions don't break layout
+- [ ] **Knowledge assistant citations are clean (no HTML markup)**
+- [ ] **Footnotes are deduplicated and readable**
+- [ ] **`<think>` tags are removed from responses**
+- [ ] **References section is formatted cleanly when present**
 
 ## Example Implementation
 
