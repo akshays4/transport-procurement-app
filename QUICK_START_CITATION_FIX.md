@@ -3,6 +3,17 @@
 ## 🎯 Goal
 Get clean, professional citations without HTML markup or duplicate footnotes.
 
+## ✨ Good News: UI Cleanup Already Active!
+
+**Automatic footnote hiding** is already implemented in the message handling code. Verbose footnotes are now automatically:
+- ✅ Removed from main chat display
+- ✅ Hidden in a "📚 View detailed source references" expander
+- ✅ Cleaned of HTML tags and special characters
+
+**This works right now** without any configuration! 🎉
+
+For even better results, also configure the system prompts below.
+
 ## ⚡ Fastest Path (5 minutes)
 
 ### For Knowledge Assistant Endpoint

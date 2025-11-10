@@ -14,13 +14,18 @@ When using knowledge assistant tools (like Databricks Genie) with the NSW Procur
 
 ## ✅ Solution Overview
 
-We've implemented a **two-layer defense** approach to ensure clean, professional citations:
+We've implemented a **three-layer defense** approach to ensure clean, professional citations:
 
 ### Layer 1: Knowledge Assistant System Prompt (RECOMMENDED)
 **Fix the problem at the source** by configuring the knowledge assistant endpoint to produce clean citations from the start.
 
 ### Layer 2: Main Agent System Prompt (FALLBACK)
 **Backup cleanup** in the main agent to handle any citations that slip through or come from other sources.
+
+### Layer 3: Message Handling Cleanup (GUARANTEED)
+**Automatic display filtering** that removes HTML tags, extracts verbose footnotes, and hides them in an expandable section. This layer always works regardless of upstream configuration.
+
+**New Feature:** Verbose footnotes are now automatically hidden from the main chat and shown in a collapsible "📚 View detailed source references" section.
 
 ## 📚 Documentation Structure
 
@@ -30,6 +35,7 @@ We've implemented a **two-layer defense** approach to ensure clean, professional
 | **`KNOWLEDGE_ASSISTANT_SETUP.md`** | How to apply the KA system prompt | DevOps/Platform Admin |
 | **`suggested_system_prompt.md`** | System prompt for the main agent | Agent Developer |
 | **`FOOTNOTE_CLEANUP_UPDATE.md`** | Details on the main agent cleanup approach | Agent Developer |
+| **`FOOTNOTE_HIDING_FEATURE.md`** | **NEW:** Automatic footnote hiding in UI | All Roles |
 | **`STRUCTURED_OUTPUT_GUIDE.md`** | Overall implementation guide | All Roles |
 | **`QUICK_REFERENCE.md`** | Quick reference for formatting standards | All Roles |
 | **This document** | Overview and decision guide | Everyone |
@@ -99,6 +105,20 @@ We've implemented a **two-layer defense** approach to ensure clean, professional
 **Cons:**
 - Requires more setup time
 - Needs permissions for both systems
+
+### Layer 3: Already Implemented! ✨
+
+**Automatic UI-Level Cleanup** (No configuration needed)
+
+The message handling code (`messages.py`) now automatically:
+- ✅ Removes HTML tags and special characters
+- ✅ Extracts verbose footnotes from responses
+- ✅ Hides footnotes in a "📚 View detailed source references" expander
+- ✅ Keeps main chat clean and professional
+
+**This layer is ALWAYS active** and provides guaranteed protection even if Layers 1 and 2 aren't configured.
+
+See `FOOTNOTE_HIDING_FEATURE.md` for details.
 
 ## 📋 Implementation Checklist
 
@@ -200,12 +220,24 @@ requirements. You should define and maintain the right level of
 management resources according to the business criticality and 
 complexity of the procurement arrangement.
 
-**References:**
-- NSW Procurement Policy Framework December 2024, Section 2.03: Contract and Supplier Management
-- Supplier Due Diligence: A Guide for NSW Public Sector Agencies
+📚 View detailed source references ▼  [Click to expand if needed]
 ```
 
-**User reaction:** 😊 "Perfect! Clear and professional."
+**If user clicks the expander:**
+```
+📚 View detailed source references ▼
+
+Detailed citations and source information
+
+NSW Procurement Policy Framework December 2024, Section 2.03:
+Contract and Supplier Management
+
+Supplier Due Diligence: A Guide for NSW Public Sector Agencies
+
+[Cleaned references without HTML markup]
+```
+
+**User reaction:** 😊 "Perfect! Clean, professional, and I can see sources if needed."
 
 ## 🧪 Testing Examples
 

@@ -178,9 +178,25 @@ def render_message(msg):
                     st.caption("*Detailed citations and source information*")
                     # Clean the footnotes before displaying
                     cleaned_footnotes = clean_html_and_special_chars(footnotes)
-                    st.text(cleaned_footnotes[:2000])  # Limit to 2000 chars
-                    if len(cleaned_footnotes) > 2000:
-                        st.caption("*Source references truncated for readability*")
+                    
+                    # Escape HTML to prevent injection, but preserve formatting
+                    import html as html_lib
+                    escaped_footnotes = html_lib.escape(cleaned_footnotes)
+                    
+                    # Create a scrollable container for the footnotes
+                    # Use markdown with a div for scrolling
+                    scrollable_html = f"""
+                    <div style="max-height: 400px; overflow-y: auto; padding: 10px; 
+                                background-color: #f8f9fa; border-radius: 5px; 
+                                border: 1px solid #dee2e6; font-family: monospace; 
+                                font-size: 12px; line-height: 1.5; color: #212529;">
+                        <pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0; color: #212529;">{escaped_footnotes}</pre>
+                    </div>
+                    """
+                    st.markdown(scrollable_html, unsafe_allow_html=True)
+                    
+                    if len(cleaned_footnotes) > 1000:
+                        st.caption(f"*{len(cleaned_footnotes):,} characters • Scroll to view all references*")
             
             # Add subtle indicator if structured data was captured
             if has_structured_data:
@@ -193,36 +209,55 @@ def render_message(msg):
                 args = call["function"]["arguments"]
                 st.markdown(f"🛠️ Calling **`{fn_name}`** with:\n```json\n{args}\n```")
     elif msg["role"] == "tool":
-        # Clean tool responses as well
+        # Always display tool responses in a scrollable container
+        import html as html_lib
+        import json
+        
+        st.markdown("🧰 Tool Response:")
+        
         tool_content = msg["content"]
         
-        # Try to parse as JSON for pretty display
-        try:
-            import json
-            parsed = json.loads(tool_content)
-            # Check if it's a knowledge assistant response with verbose content
-            if isinstance(parsed, dict) and any(key in str(parsed) for key in ['<table>', '<tr>', '<td>', 'Footnotes']):
-                st.markdown("🧰 Tool Response:")
+        # Clean HTML and extract footnotes
+        cleaned_content, footnotes = extract_and_hide_footnotes(tool_content)
+        cleaned_content = clean_html_and_special_chars(cleaned_content)
+        
+        # Escape HTML for safe display
+        escaped_content = html_lib.escape(cleaned_content)
+        
+        # Always show in scrollable container (no length check)
+        scrollable_html = f"""
+        <div style="max-height: 400px; overflow-y: auto; padding: 10px; 
+                    background-color: #f8f9fa; border-radius: 5px; 
+                    border: 1px solid #dee2e6; font-family: monospace; 
+                    font-size: 12px; line-height: 1.5; color: #212529;">
+            <pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0; color: #212529;">{escaped_content}</pre>
+        </div>
+        """
+        st.markdown(scrollable_html, unsafe_allow_html=True)
+        
+        # Show character count for long responses
+        if len(cleaned_content) > 1000:
+            st.caption(f"*{len(cleaned_content):,} characters • Scroll to view all content*")
+        
+        # Show footnotes in expander if detected
+        if footnotes and (len(footnotes) > 200 or '<table>' in footnotes.lower() or 'footnote' in footnotes.lower()):
+            with st.expander("📚 View detailed source references", expanded=False):
+                st.caption("*Detailed citations and source information*")
+                cleaned_footnotes = clean_html_and_special_chars(footnotes)
+                escaped_footnotes = html_lib.escape(cleaned_footnotes)
                 
-                # Extract main content
-                if isinstance(parsed, str):
-                    cleaned, footnotes = extract_and_hide_footnotes(parsed)
-                    cleaned = clean_html_and_special_chars(cleaned)
-                    st.text(cleaned[:1000])
-                    if footnotes:
-                        with st.expander("📚 View source references"):
-                            st.text(clean_html_and_special_chars(footnotes)[:1000])
-                else:
-                    # Show JSON in a cleaner way
-                    st.json(parsed)
-            else:
-                st.markdown("🧰 Tool Response:")
-                st.code(tool_content, language="json")
-        except:
-            # If not JSON or parsing fails, clean and display as text
-            cleaned_tool_content = clean_html_and_special_chars(tool_content)
-            st.markdown("🧰 Tool Response:")
-            st.code(cleaned_tool_content[:1000], language="text")
+                scrollable_footnotes_html = f"""
+                <div style="max-height: 400px; overflow-y: auto; padding: 10px; 
+                            background-color: #f8f9fa; border-radius: 5px; 
+                            border: 1px solid #dee2e6; font-family: monospace; 
+                            font-size: 12px; line-height: 1.5; color: #212529;">
+                    <pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0; color: #212529;">{escaped_footnotes}</pre>
+                </div>
+                """
+                st.markdown(scrollable_footnotes_html, unsafe_allow_html=True)
+                
+                if len(cleaned_footnotes) > 1000:
+                    st.caption(f"*{len(cleaned_footnotes):,} characters • Scroll to view all references*")
 
 
 @st.fragment
