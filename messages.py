@@ -162,8 +162,25 @@ def render_message(msg):
             
             # Strip structured data for display (but keep it in the original message)
             display_content = strip_structured_data(msg["content"])
+            
+            # Extract and hide verbose footnotes
+            display_content, footnotes = extract_and_hide_footnotes(display_content)
+            
+            # Clean HTML tags and special characters
+            display_content = clean_html_and_special_chars(display_content)
+            
             if display_content:  # Only display if there's content after stripping
                 st.markdown(display_content)
+            
+            # Show footnotes in an expander if they exist and contain verbose content
+            if footnotes and (len(footnotes) > 200 or '<table>' in footnotes.lower()):
+                with st.expander("📚 View detailed source references", expanded=False):
+                    st.caption("*Detailed citations and source information*")
+                    # Clean the footnotes before displaying
+                    cleaned_footnotes = clean_html_and_special_chars(footnotes)
+                    st.text(cleaned_footnotes[:2000])  # Limit to 2000 chars
+                    if len(cleaned_footnotes) > 2000:
+                        st.caption("*Source references truncated for readability*")
             
             # Add subtle indicator if structured data was captured
             if has_structured_data:
@@ -176,8 +193,36 @@ def render_message(msg):
                 args = call["function"]["arguments"]
                 st.markdown(f"🛠️ Calling **`{fn_name}`** with:\n```json\n{args}\n```")
     elif msg["role"] == "tool":
-        st.markdown("🧰 Tool Response:")
-        st.code(msg["content"], language="json")
+        # Clean tool responses as well
+        tool_content = msg["content"]
+        
+        # Try to parse as JSON for pretty display
+        try:
+            import json
+            parsed = json.loads(tool_content)
+            # Check if it's a knowledge assistant response with verbose content
+            if isinstance(parsed, dict) and any(key in str(parsed) for key in ['<table>', '<tr>', '<td>', 'Footnotes']):
+                st.markdown("🧰 Tool Response:")
+                
+                # Extract main content
+                if isinstance(parsed, str):
+                    cleaned, footnotes = extract_and_hide_footnotes(parsed)
+                    cleaned = clean_html_and_special_chars(cleaned)
+                    st.text(cleaned[:1000])
+                    if footnotes:
+                        with st.expander("📚 View source references"):
+                            st.text(clean_html_and_special_chars(footnotes)[:1000])
+                else:
+                    # Show JSON in a cleaner way
+                    st.json(parsed)
+            else:
+                st.markdown("🧰 Tool Response:")
+                st.code(tool_content, language="json")
+        except:
+            # If not JSON or parsing fails, clean and display as text
+            cleaned_tool_content = clean_html_and_special_chars(tool_content)
+            st.markdown("🧰 Tool Response:")
+            st.code(cleaned_tool_content[:1000], language="text")
 
 
 @st.fragment
