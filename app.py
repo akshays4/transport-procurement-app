@@ -389,7 +389,7 @@ def format_text_report(data, timestamp):
     """Format the compliance data as a text report."""
     lines = []
     lines.append("=" * 80)
-    lines.append("TRANSPORT PROCUREMENT COMPLIANCE REPORT")
+    lines.append("NSW PROCUREMENT COMPLIANCE REPORT")
     lines.append("=" * 80)
     lines.append(f"Generated: {timestamp}")
     lines.append(f"Total Messages Analyzed: {data['report_metadata']['total_messages_analyzed']}")
@@ -538,18 +538,34 @@ def query_chat_completions_endpoint_and_render(input_messages):
                 messages=[{"role": "assistant", "content": accumulated_content}],
                 request_id=request_id
             )
-        except Exception:
-            response_area.markdown("_Ran into an error. Retrying without streaming..._")
-            messages, request_id = query_endpoint(
-                endpoint_name=SERVING_ENDPOINT,
-                messages=input_messages,
-                return_traces=ENDPOINT_SUPPORTS_FEEDBACK
+        except Exception as e:
+            logger.error(
+                f"Error in query_chat_completions_endpoint_and_render (streaming):\n"
+                f"Endpoint: {SERVING_ENDPOINT}\n"
+                f"Error: {str(e)}\n"
+                f"Accumulated content so far: {accumulated_content[:500]}...\n"
+                f"Input messages count: {len(input_messages)}"
             )
-            response_area.empty()
-            with response_area.container():
-                for message in messages:
-                    render_message(message)
-            return AssistantResponse(messages=messages, request_id=request_id)
+            response_area.markdown("_Ran into an error. Retrying without streaming..._")
+            try:
+                messages, request_id = query_endpoint(
+                    endpoint_name=SERVING_ENDPOINT,
+                    messages=input_messages,
+                    return_traces=ENDPOINT_SUPPORTS_FEEDBACK
+                )
+                response_area.empty()
+                with response_area.container():
+                    for message in messages:
+                        render_message(message)
+                return AssistantResponse(messages=messages, request_id=request_id)
+            except Exception as retry_error:
+                logger.error(
+                    f"Error in query_chat_completions_endpoint_and_render (non-streaming retry):\n"
+                    f"Endpoint: {SERVING_ENDPOINT}\n"
+                    f"Error: {str(retry_error)}\n"
+                    f"Input messages: {json.dumps(input_messages, indent=2)}"
+                )
+                raise
 
 
 def query_chat_agent_endpoint_and_render(input_messages):
@@ -598,18 +614,34 @@ def query_chat_agent_endpoint_and_render(input_messages):
                 messages=[message.model_dump_compat(exclude_none=True) for message in messages],
                 request_id=request_id
             )
-        except Exception:
-            response_area.markdown("_Ran into an error. Retrying without streaming..._")
-            messages, request_id = query_endpoint(
-                endpoint_name=SERVING_ENDPOINT,
-                messages=input_messages,
-                return_traces=ENDPOINT_SUPPORTS_FEEDBACK
+        except Exception as e:
+            logger.error(
+                f"Error in query_chat_agent_endpoint_and_render (streaming):\n"
+                f"Endpoint: {SERVING_ENDPOINT}\n"
+                f"Error: {str(e)}\n"
+                f"Accumulated messages count: {len(message_buffers)}\n"
+                f"Input messages count: {len(input_messages)}"
             )
-            response_area.empty()
-            with response_area.container():
-                for message in messages:
-                    render_message(message)
-            return AssistantResponse(messages=messages, request_id=request_id)
+            response_area.markdown("_Ran into an error. Retrying without streaming..._")
+            try:
+                messages, request_id = query_endpoint(
+                    endpoint_name=SERVING_ENDPOINT,
+                    messages=input_messages,
+                    return_traces=ENDPOINT_SUPPORTS_FEEDBACK
+                )
+                response_area.empty()
+                with response_area.container():
+                    for message in messages:
+                        render_message(message)
+                return AssistantResponse(messages=messages, request_id=request_id)
+            except Exception as retry_error:
+                logger.error(
+                    f"Error in query_chat_agent_endpoint_and_render (non-streaming retry):\n"
+                    f"Endpoint: {SERVING_ENDPOINT}\n"
+                    f"Error: {str(retry_error)}\n"
+                    f"Input messages: {json.dumps(input_messages, indent=2)}"
+                )
+                raise
 
 
 def query_responses_endpoint_and_render(input_messages):
@@ -694,18 +726,34 @@ def query_responses_endpoint_and_render(input_messages):
                             render_message(msg)
 
             return AssistantResponse(messages=all_messages, request_id=request_id)
-        except Exception:
-            response_area.markdown("_Ran into an error. Retrying without streaming..._")
-            messages, request_id = query_endpoint(
-                endpoint_name=SERVING_ENDPOINT,
-                messages=input_messages,
-                return_traces=ENDPOINT_SUPPORTS_FEEDBACK
+        except Exception as e:
+            logger.error(
+                f"Error in query_responses_endpoint_and_render (streaming):\n"
+                f"Endpoint: {SERVING_ENDPOINT}\n"
+                f"Error: {str(e)}\n"
+                f"Accumulated messages count: {len(all_messages)}\n"
+                f"Input messages count: {len(input_messages)}"
             )
-            response_area.empty()
-            with response_area.container():
-                for message in messages:
-                    render_message(message)
-            return AssistantResponse(messages=messages, request_id=request_id)
+            response_area.markdown("_Ran into an error. Retrying without streaming..._")
+            try:
+                messages, request_id = query_endpoint(
+                    endpoint_name=SERVING_ENDPOINT,
+                    messages=input_messages,
+                    return_traces=ENDPOINT_SUPPORTS_FEEDBACK
+                )
+                response_area.empty()
+                with response_area.container():
+                    for message in messages:
+                        render_message(message)
+                return AssistantResponse(messages=messages, request_id=request_id)
+            except Exception as retry_error:
+                logger.error(
+                    f"Error in query_responses_endpoint_and_render (non-streaming retry):\n"
+                    f"Endpoint: {SERVING_ENDPOINT}\n"
+                    f"Error: {str(retry_error)}\n"
+                    f"Input messages: {json.dumps(input_messages, indent=2)}"
+                )
+                raise
 
 
 # --- Init state ---
@@ -743,10 +791,10 @@ with st.sidebar:
 # CHAT PAGE
 # ============================================================================
 if st.session_state.current_page == "chat":
-    st.title("🚃 Transport Procurement Compliance Agent")
+    st.title("📚 NSW Procurement Compliance Agent")
     st.write(f"An agent to check contract/subcontract data, recent news articles and sentiment, and apply NSW Procurement Policies.")
     st.write(f"Endpoint name: `{SERVING_ENDPOINT}`")
-    st.write(f"Example Prompt: Find some recent negative news articles and suggest methods to ensure supplier compliance with those suppliers")
+    st.write(f"Example Prompt: Find some recent negative news articles and suggest methods to ensure supplier compliance with those suppliers by referring to the NSW policy")
 
     # --- Render chat history ---
     for i, element in enumerate(st.session_state.history):

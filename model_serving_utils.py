@@ -75,6 +75,7 @@ def query_endpoint_stream(endpoint_name: str, messages: list[dict[str, str]], re
 
 def _query_chat_endpoint_stream(endpoint_name: str, messages: list[dict[str, str]], return_traces: bool):
     """Invoke an endpoint that implements either chat completions or ChatAgent and stream the response"""
+    logger = logging.getLogger(__name__)
     client = get_deploy_client("databricks")
 
     # Prepare input payload
@@ -84,16 +85,26 @@ def _query_chat_endpoint_stream(endpoint_name: str, messages: list[dict[str, str
     if return_traces:
         inputs["databricks_options"] = {"return_trace": True}
 
-    for chunk in client.predict_stream(endpoint=endpoint_name, inputs=inputs):
-        if "choices" in chunk:
-            yield chunk
-        elif "delta" in chunk:
-            yield chunk
-        else:
-            _throw_unexpected_endpoint_format()
+    try:
+        for chunk in client.predict_stream(endpoint=endpoint_name, inputs=inputs):
+            if "choices" in chunk:
+                yield chunk
+            elif "delta" in chunk:
+                yield chunk
+            else:
+                _throw_unexpected_endpoint_format()
+    except Exception as e:
+        logger.error(
+            f"Error in streaming chat endpoint call:\n"
+            f"Endpoint: {endpoint_name}\n"
+            f"Error: {str(e)}\n"
+            f"Input payload: {json.dumps(inputs, indent=2)}"
+        )
+        raise
 
 def _query_responses_endpoint_stream(endpoint_name: str, messages: list[dict[str, str]], return_traces: bool):
     """Stream responses from agent/v1/responses endpoints using MLflow deployments client."""
+    logger = logging.getLogger(__name__)
     client = get_deploy_client("databricks")
     
     input_messages = _convert_to_responses_format(messages)
@@ -107,9 +118,18 @@ def _query_responses_endpoint_stream(endpoint_name: str, messages: list[dict[str
     if return_traces:
         inputs["databricks_options"] = {"return_trace": True}
 
-    for event_data in client.predict_stream(endpoint=endpoint_name, inputs=inputs):
-        # Just yield the raw event data, let app.py handle the parsing
-        yield event_data
+    try:
+        for event_data in client.predict_stream(endpoint=endpoint_name, inputs=inputs):
+            # Just yield the raw event data, let app.py handle the parsing
+            yield event_data
+    except Exception as e:
+        logger.error(
+            f"Error in streaming responses endpoint call:\n"
+            f"Endpoint: {endpoint_name}\n"
+            f"Error: {str(e)}\n"
+            f"Input payload: {json.dumps(inputs, indent=2)}"
+        )
+        raise
 
 def query_endpoint(endpoint_name, messages, return_traces):
     """
@@ -125,38 +145,50 @@ def query_endpoint(endpoint_name, messages, return_traces):
 
 def _query_chat_endpoint(endpoint_name, messages, return_traces):
     """Calls a model serving endpoint with chat/completions format."""
+    logger = logging.getLogger(__name__)
     inputs = {'messages': messages}
     if return_traces:
         inputs['databricks_options'] = {'return_trace': True}
     
-    res = get_deploy_client('databricks').predict(
-        endpoint=endpoint_name,
-        inputs=inputs,
-    )
-    request_id = res.get("databricks_output", {}).get("databricks_request_id")
-    if "messages" in res:
-        return res["messages"], request_id
-    elif "choices" in res:
-        choice_message = res["choices"][0]["message"]
-        choice_content = choice_message.get("content")
-        
-        # Case 1: The content is a list of structured objects
-        if isinstance(choice_content, list):
-            combined_content = "".join([part.get("text", "") for part in choice_content if part.get("type") == "text"])
-            reformatted_message = {
-                "role": choice_message.get("role"),
-                "content": combined_content
-            }
-            return [reformatted_message], request_id
-        
-        # Case 2: The content is a simple string
-        elif isinstance(choice_content, str):
-            return [choice_message], request_id
+    try:
+        res = get_deploy_client('databricks').predict(
+            endpoint=endpoint_name,
+            inputs=inputs,
+        )
+        request_id = res.get("databricks_output", {}).get("databricks_request_id")
+        if "messages" in res:
+            return res["messages"], request_id
+        elif "choices" in res:
+            choice_message = res["choices"][0]["message"]
+            choice_content = choice_message.get("content")
+            
+            # Case 1: The content is a list of structured objects
+            if isinstance(choice_content, list):
+                combined_content = "".join([part.get("text", "") for part in choice_content if part.get("type") == "text"])
+                reformatted_message = {
+                    "role": choice_message.get("role"),
+                    "content": combined_content
+                }
+                return [reformatted_message], request_id
+            
+            # Case 2: The content is a simple string
+            elif isinstance(choice_content, str):
+                return [choice_message], request_id
 
-    _throw_unexpected_endpoint_format()
+        _throw_unexpected_endpoint_format()
+    except Exception as e:
+        logger.error(
+            f"Error in chat endpoint call:\n"
+            f"Endpoint: {endpoint_name}\n"
+            f"Error: {str(e)}\n"
+            f"Input payload: {json.dumps(inputs, indent=2)}\n"
+            f"Response (if any): {json.dumps(res if 'res' in locals() else 'No response', indent=2)}"
+        )
+        raise
 
 def _query_responses_endpoint(endpoint_name, messages, return_traces):
     """Query agent/v1/responses endpoints using MLflow deployments client."""
+    logger = logging.getLogger(__name__)
     client = get_deploy_client("databricks")
     
     input_messages = _convert_to_responses_format(messages)
@@ -169,66 +201,76 @@ def _query_responses_endpoint(endpoint_name, messages, return_traces):
     if return_traces:
         inputs["databricks_options"] = {"return_trace": True}
     
-    # Make the prediction call
-    response = client.predict(endpoint=endpoint_name, inputs=inputs)
-    
-    # Extract messages from the response
-    result_messages = []
-    request_id = response.get("databricks_output", {}).get("databricks_request_id")
-    
-    # Process the output items from ResponsesAgent response
-    output_items = response.get("output", [])
-    
-    for item in output_items:
-        item_type = item.get("type")
+    try:
+        # Make the prediction call
+        response = client.predict(endpoint=endpoint_name, inputs=inputs)
         
-        if item_type == "message":
-            # Extract text content from message
-            text_content = ""
-            content_parts = item.get("content", [])
+        # Extract messages from the response
+        result_messages = []
+        request_id = response.get("databricks_output", {}).get("databricks_request_id")
+        
+        # Process the output items from ResponsesAgent response
+        output_items = response.get("output", [])
+        
+        for item in output_items:
+            item_type = item.get("type")
             
-            for content_part in content_parts:
-                if content_part.get("type") == "output_text":
-                    text_content += content_part.get("text", "")
-            
-            if text_content:
+            if item_type == "message":
+                # Extract text content from message
+                text_content = ""
+                content_parts = item.get("content", [])
+                
+                for content_part in content_parts:
+                    if content_part.get("type") == "output_text":
+                        text_content += content_part.get("text", "")
+                
+                if text_content:
+                    result_messages.append({
+                        "role": "assistant",
+                        "content": text_content
+                    })
+                    
+            elif item_type == "function_call":
+                # Handle function calls
+                call_id = item.get("call_id")
+                function_name = item.get("name")
+                arguments = item.get("arguments", "")
+                
+                tool_calls = [{
+                    "id": call_id,
+                    "type": "function", 
+                    "function": {
+                        "name": function_name,
+                        "arguments": arguments
+                    }
+                }]
                 result_messages.append({
                     "role": "assistant",
-                    "content": text_content
+                    "content": "",
+                    "tool_calls": tool_calls
                 })
                 
-        elif item_type == "function_call":
-            # Handle function calls
-            call_id = item.get("call_id")
-            function_name = item.get("name")
-            arguments = item.get("arguments", "")
-            
-            tool_calls = [{
-                "id": call_id,
-                "type": "function", 
-                "function": {
-                    "name": function_name,
-                    "arguments": arguments
-                }
-            }]
-            result_messages.append({
-                "role": "assistant",
-                "content": "",
-                "tool_calls": tool_calls
-            })
-            
-        elif item_type == "function_call_output":
-            # Handle function call output/result
-            call_id = item.get("call_id")
-            output_content = item.get("output", "")
-            
-            result_messages.append({
-                "role": "tool",
-                "content": output_content,
-                "tool_call_id": call_id
-            })
-    
-    return result_messages or [{"role": "assistant", "content": "No response found"}], request_id
+            elif item_type == "function_call_output":
+                # Handle function call output/result
+                call_id = item.get("call_id")
+                output_content = item.get("output", "")
+                
+                result_messages.append({
+                    "role": "tool",
+                    "content": output_content,
+                    "tool_call_id": call_id
+                })
+        
+        return result_messages or [{"role": "assistant", "content": "No response found"}], request_id
+    except Exception as e:
+        logger.error(
+            f"Error in responses endpoint call:\n"
+            f"Endpoint: {endpoint_name}\n"
+            f"Error: {str(e)}\n"
+            f"Input payload: {json.dumps(inputs, indent=2)}\n"
+            f"Response (if any): {json.dumps(response if 'response' in locals() else 'No response', indent=2)}"
+        )
+        raise
 
 def submit_feedback(endpoint, request_id, rating):
     """Submit feedback to the agent."""
