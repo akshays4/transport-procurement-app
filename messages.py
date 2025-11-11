@@ -174,29 +174,33 @@ def render_message(msg):
             
             # Show footnotes in an expander if they exist and contain verbose content
             if footnotes and (len(footnotes) > 200 or '<table>' in footnotes.lower()):
-                with st.expander("📚 View detailed source references", expanded=False):
-                    st.caption("*Detailed citations and source information*")
-                    # Clean the footnotes before displaying
-                    cleaned_footnotes = clean_html_and_special_chars(footnotes)
-                    
-                    # Escape HTML to prevent injection, but preserve formatting
-                    import html as html_lib
-                    escaped_footnotes = html_lib.escape(cleaned_footnotes)
-                    
-                    # Create a scrollable container for the footnotes
-                    # Use markdown with a div for scrolling
-                    scrollable_html = f"""
-                    <div style="max-height: 400px; overflow-y: auto; padding: 10px; 
-                                background-color: #f8f9fa; border-radius: 5px; 
-                                border: 1px solid #dee2e6; font-family: monospace; 
-                                font-size: 12px; line-height: 1.5; color: #212529;">
-                        <pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0; color: #212529;">{escaped_footnotes}</pre>
-                    </div>
-                    """
-                    st.markdown(scrollable_html, unsafe_allow_html=True)
-                    
-                    if len(cleaned_footnotes) > 1000:
-                        st.caption(f"*{len(cleaned_footnotes):,} characters • Scroll to view all references*")
+                # Create a container to prevent scroll jump
+                with st.container():
+                    with st.expander("📚 View detailed source references", expanded=False):
+                        st.caption("*Detailed citations and source information*")
+                        # Clean the footnotes before displaying
+                        cleaned_footnotes = clean_html_and_special_chars(footnotes)
+                        
+                        # Escape HTML to prevent injection, but preserve formatting
+                        import html as html_lib
+                        escaped_footnotes = html_lib.escape(cleaned_footnotes)
+                        
+                        # Create a scrollable container for the footnotes with scroll anchoring
+                        # Use markdown with a div for scrolling
+                        scrollable_html = f"""
+                        <div style="max-height: 400px; overflow-y: auto; overflow-x: hidden; 
+                                    padding: 10px; background-color: #f8f9fa; border-radius: 5px; 
+                                    border: 1px solid #dee2e6; font-family: monospace; 
+                                    font-size: 12px; line-height: 1.5; color: #212529; 
+                                    position: relative; width: 100%; box-sizing: border-box;
+                                    overflow-anchor: auto; scroll-margin-top: 20px;">
+                            <pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0; color: #212529;">{escaped_footnotes}</pre>
+                        </div>
+                        """
+                        st.markdown(scrollable_html, unsafe_allow_html=True)
+                        
+                        if len(cleaned_footnotes) > 1000:
+                            st.caption(f"*{len(cleaned_footnotes):,} characters • Scroll to view all references*")
             
             # Add subtle indicator if structured data was captured
             if has_structured_data:
@@ -226,10 +230,11 @@ def render_message(msg):
         
         # Always show in scrollable container (no length check)
         scrollable_html = f"""
-        <div style="max-height: 400px; overflow-y: auto; padding: 10px; 
-                    background-color: #f8f9fa; border-radius: 5px; 
+        <div style="max-height: 400px; overflow-y: auto; overflow-x: hidden; 
+                    padding: 10px; background-color: #f8f9fa; border-radius: 5px; 
                     border: 1px solid #dee2e6; font-family: monospace; 
-                    font-size: 12px; line-height: 1.5; color: #212529;">
+                    font-size: 12px; line-height: 1.5; color: #212529; 
+                    position: relative; width: 100%; box-sizing: border-box;">
             <pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0; color: #212529;">{escaped_content}</pre>
         </div>
         """
@@ -241,23 +246,27 @@ def render_message(msg):
         
         # Show footnotes in expander if detected
         if footnotes and (len(footnotes) > 200 or '<table>' in footnotes.lower() or 'footnote' in footnotes.lower()):
-            with st.expander("📚 View detailed source references", expanded=False):
-                st.caption("*Detailed citations and source information*")
-                cleaned_footnotes = clean_html_and_special_chars(footnotes)
-                escaped_footnotes = html_lib.escape(cleaned_footnotes)
-                
-                scrollable_footnotes_html = f"""
-                <div style="max-height: 400px; overflow-y: auto; padding: 10px; 
-                            background-color: #f8f9fa; border-radius: 5px; 
-                            border: 1px solid #dee2e6; font-family: monospace; 
-                            font-size: 12px; line-height: 1.5; color: #212529;">
-                    <pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0; color: #212529;">{escaped_footnotes}</pre>
-                </div>
-                """
-                st.markdown(scrollable_footnotes_html, unsafe_allow_html=True)
-                
-                if len(cleaned_footnotes) > 1000:
-                    st.caption(f"*{len(cleaned_footnotes):,} characters • Scroll to view all references*")
+            # Create a container to prevent scroll jump
+            with st.container():
+                with st.expander("📚 View detailed source references", expanded=False):
+                    st.caption("*Detailed citations and source information*")
+                    cleaned_footnotes = clean_html_and_special_chars(footnotes)
+                    escaped_footnotes = html_lib.escape(cleaned_footnotes)
+                    
+                    scrollable_footnotes_html = f"""
+                    <div style="max-height: 400px; overflow-y: auto; overflow-x: hidden; 
+                                padding: 10px; background-color: #f8f9fa; border-radius: 5px; 
+                                border: 1px solid #dee2e6; font-family: monospace; 
+                                font-size: 12px; line-height: 1.5; color: #212529; 
+                                position: relative; width: 100%; box-sizing: border-box;
+                                overflow-anchor: auto; scroll-margin-top: 20px;">
+                        <pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0; color: #212529;">{escaped_footnotes}</pre>
+                    </div>
+                    """
+                    st.markdown(scrollable_footnotes_html, unsafe_allow_html=True)
+                    
+                    if len(cleaned_footnotes) > 1000:
+                        st.caption(f"*{len(cleaned_footnotes):,} characters • Scroll to view all references*")
 
 
 @st.fragment
